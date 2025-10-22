@@ -164,7 +164,7 @@ const MasterCategories = () => {
     useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [editedCategoryName, setEditedCategoryName] = useState("");
-  const [editedStatus, setEditedStatus] = useState<"Active" | "Inactive">(
+  const [editedStatus, setEditedStatus] = useState<"Active" | "Inactive" | "Pending">(
     "Active"
   );
 
