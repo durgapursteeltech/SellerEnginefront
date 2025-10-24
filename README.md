@@ -160,6 +160,50 @@ The application uses Tailwind CSS for styling. You can customize:
 - Global styles in `app/globals.css`
 - Component-specific styles in individual component files
 
+## Backend Server Configuration
+
+When switching between development (localhost) and production (Render) servers, you need to update the API base URL in **3 files**:
+
+### Files to Update:
+
+#### 1. **`utils/api.ts`** (Lines 4-5)
+```typescript
+// For localhost (development):
+export const API_BASE_URL = 'http://localhost:3002';
+// export const API_BASE_URL = 'https://sellerengine.onrender.com';
+
+// For production (Render):
+// export const API_BASE_URL = 'http://localhost:3002';
+export const API_BASE_URL = 'https://sellerengine.onrender.com';
+```
+
+#### 2. **`services/socketService.ts`** (Lines 4-5)
+```typescript
+// For localhost (development):
+// const API_BASE_URL = 'https://sellerengine.onrender.com';
+const API_BASE_URL = 'http://localhost:3002';
+
+// For production (Render):
+const API_BASE_URL = 'https://sellerengine.onrender.com';
+// const API_BASE_URL = 'http://localhost:3002';
+```
+
+#### 3. **`services/socketService.ts`** (Line 19) - WebSocket URL
+The socket connection automatically uses the API_BASE_URL, but note that it converts the protocol:
+```typescript
+const socketUrl = API_BASE_URL.replace(/^https?:\/\//, '');
+this.socket = io(`ws://${socketUrl}`, { ... });
+```
+
+### Quick Reference:
+
+| Environment | API Base URL |
+|------------|--------------|
+| **Development** | `http://localhost:3002` |
+| **Production** | `https://sellerengine.onrender.com` |
+
+**Note**: Always comment out the unused URL to easily switch between environments.
+
 ## Contributing
 
 1. Fork the repository

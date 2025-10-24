@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Send } from 'lucide-react';
 import { apiClient } from '@/utils/api';
 import socketService from '@/services/socketService';
@@ -30,13 +30,18 @@ const SupportChat = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const fetchSupportChats = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiClient.getAllSupportChats();
       console.log('fetchSupportChats response:', response);
-      
+
       // Handle direct array response
       if (Array.isArray(response)) {
         console.log('Setting support users from array:', response);
@@ -70,7 +75,7 @@ const SupportChat = () => {
       console.log('Current selectedUser:', selectedUser);
       console.log('Message sender:', data.data.sender);
       console.log('Message receiver:', data.data.receiver);
-      
+
       if (data.data.receiver === selectedUser || data.data.sender === selectedUser) {
         console.log('Adding message to UI');
         const newMessage: ChatMessage = {
@@ -81,12 +86,20 @@ const SupportChat = () => {
           timestamp: data.data.timestamp,
           status: data.data.status
         };
-        
-        setMessages(prev => [...prev, newMessage]);
+
+        // Only add if not already in messages (prevent duplicates)
+        setMessages(prev => {
+          const exists = prev.some(msg => msg._id === newMessage._id);
+          if (exists) return prev;
+          return [...prev, newMessage];
+        });
+
+        // Scroll to bottom when new message arrives
+        setTimeout(scrollToBottom, 100);
       } else {
         console.log('Message not for current user, skipping');
       }
-      
+
       fetchSupportChats();
     };
 
@@ -102,6 +115,11 @@ const SupportChat = () => {
       fetchMessages(selectedUser);
     }
   }, [selectedUser]);
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const fetchMessages = async (userId: string) => {
     try {
@@ -128,18 +146,14 @@ const SupportChat = () => {
       setSending(true);
       const response = await apiClient.sendSupportMessage(selectedUser, message.trim());
       console.log('Send message response:', response);
-      
-      if (response.status === 'SUCCESS' && response.data) {
-        const newMessage = response.data as ChatMessage;
-        setMessages(prev => [...prev, newMessage]);
-        setMessage('');
-        fetchSupportChats();
-      } else if ((response as any)._id) {
-        const newMessage = response as ChatMessage;
-        setMessages(prev => [...prev, newMessage]);
-        setMessage('');
-        fetchSupportChats();
-      }
+
+      // Don't manually add the message here - let the socket event handle it
+      // This prevents duplicates since the backend emits to all admin sockets
+      setMessage('');
+
+      // The socket event will update the messages automatically
+      // Just refresh the chat list to update last message preview
+      fetchSupportChats();
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
@@ -271,22 +285,26 @@ const SupportChat = () => {
                 <p className="text-gray-500 text-sm">No messages yet. Start the conversation!</p>
               </div>
             ) : (
-              messages.map((msg) => (
-                <div key={msg._id} className={`flex ${msg.sender === '99999' ? 'justify-start' : 'justify-end'}`}>
-                  <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    msg.sender === '99999'
-                      ? 'bg-gray-200 text-gray-900' 
-                      : 'bg-primary-600 text-white'
-                  }`}>
-                    <p className="text-sm">{msg.message}</p>
-                    <p className={`text-xs mt-1 ${
-                      msg.sender === '99999' ? 'text-gray-500' : 'text-primary-100'
+              <>
+                {messages.map((msg) => (
+                  <div key={msg._id} className={`flex ${msg.sender === '99999' ? 'justify-start' : 'justify-end'}`}>
+                    <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      msg.sender === '99999'
+                        ? 'bg-gray-200 text-gray-900'
+                        : 'bg-primary-600 text-white'
                     }`}>
-                      {formatTime(msg.timestamp)}
-                    </p>
+                      <p className="text-sm">{msg.message}</p>
+                      <p className={`text-xs mt-1 ${
+                        msg.sender === '99999' ? 'text-gray-500' : 'text-primary-100'
+                      }`}>
+                        {formatTime(msg.timestamp)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+                {/* Invisible element to scroll to */}
+                <div ref={messagesEndRef} />
+              </>
             )
           ) : (
             <div className="flex items-center justify-center h-full">

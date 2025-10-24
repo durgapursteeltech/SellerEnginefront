@@ -4,16 +4,14 @@ import { apiClient } from '../utils/api'
 
 interface ActivityItem {
   _id: string
-  actorType: 'seller' | 'seller_user' | 'admin' | 'system'
-  actorId: string
-  actorName: string
-  sellerId?: string
+  sellerId: string
   sellerName?: string
-  action: string
-  category: string
-  description: string
+  type: string
+  title: string
+  message: string
+  data?: any
+  isRead: boolean
   createdAt: string
-  priority: 'low' | 'medium' | 'high' | 'critical'
 }
 
 export default function RecentActivity() {
@@ -41,44 +39,35 @@ export default function RecentActivity() {
     fetchRecentActivity()
   }, [])
 
-  const getCategoryColor = (category: string) => {
-    switch (category.toLowerCase()) {
-      case 'authentication':
-        return 'bg-blue-100 text-blue-800'
-      case 'user_management':
-        return 'bg-purple-100 text-purple-800'
-      case 'product':
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'product_added':
         return 'bg-green-100 text-green-800'
-      case 'order':
-        return 'bg-orange-100 text-orange-800'
-      case 'bid':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'rate':
-        return 'bg-indigo-100 text-indigo-800'
-      case 'support':
-        return 'bg-pink-100 text-pink-800'
-      default:
-        return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'critical':
+      case 'product_approved':
+        return 'bg-emerald-100 text-emerald-800'
+      case 'product_rejected':
         return 'bg-red-100 text-red-800'
-      case 'high':
-        return 'bg-orange-100 text-orange-800'
-      case 'medium':
+      case 'product_difference_changed':
+        return 'bg-cyan-100 text-cyan-800'
+      case 'rate_opened':
+        return 'bg-indigo-100 text-indigo-800'
+      case 'bid_received':
         return 'bg-yellow-100 text-yellow-800'
-      case 'low':
+      case 'bid_accepted':
         return 'bg-green-100 text-green-800'
+      case 'bid_rejected':
+        return 'bg-red-100 text-red-800'
+      case 'order_created':
+        return 'bg-orange-100 text-orange-800'
+      case 'truck_placed':
+        return 'bg-blue-100 text-blue-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
   }
 
-  const formatAction = (action: string) => {
-    return action.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+  const formatType = (type: string) => {
+    return type.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
   }
 
   const formatDate = (dateString: string) => {
@@ -116,10 +105,10 @@ export default function RecentActivity() {
                 Activity
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Description
+                Message
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
+                Type
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Date
@@ -144,23 +133,18 @@ export default function RecentActivity() {
               activities.map((item) => (
                 <tr key={item._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm">
-                    <div className="font-medium text-gray-900">{formatAction(item.action)}</div>
+                    <div className="font-medium text-gray-900">{item.title}</div>
                     <div className="text-xs text-gray-500 mt-0.5">
-                      by {item.actorName} {item.sellerName && `(${item.sellerName})`}
+                      {item.sellerName || 'Unknown Seller'}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
-                    {item.description}
+                    {item.message}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col space-y-1">
-                      <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getCategoryColor(item.category)}`}>
-                        {item.category.replace(/_/g, ' ')}
-                      </span>
-                      <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getPriorityColor(item.priority)}`}>
-                        {item.priority}
-                      </span>
-                    </div>
+                    <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getTypeColor(item.type)}`}>
+                      {formatType(item.type)}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatDate(item.createdAt)}

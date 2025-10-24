@@ -1,7 +1,7 @@
 // API utility functions for the seller admin portal
 
 // const API_BASE_URL = 'https://dst-engine-uat.onrender.com';
-// export const API_BASE_URL = 'http://localhost:3000';
+//  export const API_BASE_URL = 'http://localhost:3002';
 export const API_BASE_URL = 'https://sellerengine.onrender.com';
 
 console.log('API Base URL:', API_BASE_URL); // Debug log
@@ -603,7 +603,8 @@ class ApiClient {
   }
 
   async getRecentActivitiesNew(limit?: number) {
-    const endpoint = `/api/activity/admin/activities/recent${limit ? `?limit=${limit}` : ''}`;
+    // Using unified activity log (notifications) endpoint
+    const endpoint = `/api/seller/notifications/admin/all${limit ? `?limit=${limit}` : ''}`;
     return this.request<{
       activities: any[];
       count: number;

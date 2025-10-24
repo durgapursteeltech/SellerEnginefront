@@ -1,8 +1,8 @@
 import { io, Socket } from 'socket.io-client';
 
 // const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://dst-engine-uat.onrender.com';
-// const API_BASE_URL = 'http://localhost:3000';
- const API_BASE_URL = 'https://sellerengine.onrender.com';
+const API_BASE_URL = 'https://sellerengine.onrender.com';
+// const API_BASE_URL = 'http://localhost:3002';
 
 class SocketService {
   private socket: Socket | null = null;
