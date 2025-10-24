@@ -1,8 +1,8 @@
 // API utility functions for the seller admin portal
 
 // const API_BASE_URL = 'https://dst-engine-uat.onrender.com';
-//  export const API_BASE_URL = 'http://localhost:3002';
-export const API_BASE_URL = 'https://sellerengine.onrender.com';
+ export const API_BASE_URL = 'http://localhost:3002';
+// export const API_BASE_URL = 'https://sellerengine.onrender.com';
 
 console.log('API Base URL:', API_BASE_URL); // Debug log
 

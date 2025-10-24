@@ -13,10 +13,14 @@ class SocketService {
 
   connect(token?: string): void {
     try {
+      // Determine WebSocket protocol based on API URL protocol
+      const isSecure = API_BASE_URL.startsWith('https://');
+      const wsProtocol = isSecure ? 'wss://' : 'ws://';
+
       // Extract base URL without protocol for socket connection
       const socketUrl = API_BASE_URL.replace(/^https?:\/\//, '');
-      
-      this.socket = io(`ws://${socketUrl}`, {
+
+      this.socket = io(`${wsProtocol}${socketUrl}`, {
         auth: {
           token: token || (typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null)
         },
