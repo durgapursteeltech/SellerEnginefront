@@ -107,21 +107,28 @@ export default function BidsTable({ refreshTrigger }: BidTableProps) {
     }
   }
 
-  // Filter bids based on search and filters
-  const filteredBids = bids.filter(bid => {
-    const matchesSearch = searchTerm === '' || 
-      bid.bidId.toString().includes(searchTerm) ||
-      bid.dealerId?.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bid.sellerInfo?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bid.sellerId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bid.categoryId?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesStatus = statusFilter === 'All' || bid.status === statusFilter
-    const matchesSeller = sellerFilter === 'All' || (bid.sellerInfo?.name || bid.sellerId) === sellerFilter
-    const matchesDealer = dealerFilter === 'All' || bid.dealerId?.userName === dealerFilter
-    
-    return matchesSearch && matchesStatus && matchesSeller && matchesDealer
-  })
+  // Filter bids based on search and filters, then sort by latest first
+  const filteredBids = bids
+    .filter(bid => {
+      const matchesSearch = searchTerm === '' ||
+        bid.bidId.toString().includes(searchTerm) ||
+        bid.dealerId?.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        bid.sellerInfo?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        bid.sellerId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        bid.categoryId?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+
+      const matchesStatus = statusFilter === 'All' || bid.status === statusFilter
+      const matchesSeller = sellerFilter === 'All' || (bid.sellerInfo?.name || bid.sellerId) === sellerFilter
+      const matchesDealer = dealerFilter === 'All' || bid.dealerId?.userName === dealerFilter
+
+      return matchesSearch && matchesStatus && matchesSeller && matchesDealer
+    })
+    .sort((a, b) => {
+      // Sort by createdAt in descending order (latest first)
+      const dateA = new Date(a.createdAt).getTime()
+      const dateB = new Date(b.createdAt).getTime()
+      return dateB - dateA
+    })
 
   const formatDate = (dateString: string) => {
     try {
@@ -391,7 +398,7 @@ export default function BidsTable({ refreshTrigger }: BidTableProps) {
           sellerName: selectedBid.sellerInfo?.name || selectedBid.sellerId || 'N/A',
           dealerName: selectedBid.dealerId?.userName || 'N/A',
           bidAmount: selectedBid.biddingPrice || 0,
-          bidQty: selectedBid.flashedRate || 0,
+          bidQty: selectedBid.biddingQuantity || 0,
           masterCategories: selectedBid.categoryId?.name || 'N/A',
           status: selectedBid.status,
           date: formatDate(selectedBid.createdAt)

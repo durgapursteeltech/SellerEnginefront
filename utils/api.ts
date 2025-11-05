@@ -1,8 +1,8 @@
 // API utility functions for the seller admin portal
 
 // const API_BASE_URL = 'https://dst-engine-uat.onrender.com';
-//  export const API_BASE_URL = 'http://localhost:3002';
-export const API_BASE_URL = 'https://sellerengine.onrender.com';
+ export const API_BASE_URL = 'http://localhost:3002';
+// export const API_BASE_URL = 'https://sellerengine.onrender.com';
 
 console.log('API Base URL:', API_BASE_URL); // Debug log
 
@@ -464,8 +464,8 @@ class ApiClient {
     });
   }
 
-  // Support Chat APIs
-  async getAllSupportChats(params?: { page?: number; limit?: number }) {
+  // Support Chat APIs - Group Based
+  async getAllSupportGroups(params?: { page?: number; limit?: number }) {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -474,21 +474,12 @@ class ApiClient {
         }
       });
     }
-    
-    const endpoint = `/api/seller/support-chat/admin/support-chats${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-    return this.request<{
-      chats: any[];
-      pagination?: {
-        currentPage: number;
-        totalPages: number;
-        totalChats: number;
-        hasNextPage: boolean;
-        hasPrevPage: boolean;
-      };
-    }>(endpoint);
+
+    const endpoint = `/api/seller/support-chat/admin/support-groups${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.request<any[]>(endpoint);
   }
 
-  async getSupportMessages(sellerUserId: string, params?: { page?: number; limit?: number }) {
+  async getGroupMessages(groupId: string, params?: { page?: number; limit?: number }) {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -497,24 +488,25 @@ class ApiClient {
         }
       });
     }
-    
-    const endpoint = `/api/seller/support-chat/admin/support-chats/messages/${sellerUserId}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-    return this.request<{
-      messages: any[];
-      pagination?: {
-        currentPage: number;
-        totalPages: number;
-        totalMessages: number;
-        hasNextPage: boolean;
-        hasPrevPage: boolean;
-      };
-    }>(endpoint);
+
+    const endpoint = `/api/seller/support-chat/admin/support-groups/${groupId}/messages${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.request<any[]>(endpoint);
   }
 
-  async sendSupportMessage(sellerUserId: string, message: string) {
-    return this.request(`/api/seller/support-chat/admin/support-chats/messages/${sellerUserId}`, {
+  async sendGroupMessage(groupId: string, message: string) {
+    return this.request(`/api/seller/support-chat/admin/support-groups/${groupId}/messages`, {
       method: 'POST',
       body: JSON.stringify({ message }),
+    });
+  }
+
+  async getGroupParticipants(groupId: string) {
+    return this.request<any[]>(`/api/seller/support-chat/admin/support-groups/${groupId}/participants`);
+  }
+
+  async markGroupMessagesAsRead(groupId: string) {
+    return this.request(`/api/seller/support-chat/admin/support-groups/${groupId}/read`, {
+      method: 'PUT',
     });
   }
 
@@ -671,6 +663,18 @@ class ApiClient {
   async updateHeartbeat() {
     return this.request('/api/activity/heartbeat', {
       method: 'POST',
+    });
+  }
+
+  // Product Difference APIs
+  async getProductDifferenceByProductId(productId: string) {
+    return this.request(`/api/seller/product-differences/admin/product/${productId}`);
+  }
+
+  async createOrUpdateProductDifference(productId: string, differenceRate: number) {
+    return this.request('/api/seller/product-differences/admin/create-update', {
+      method: 'POST',
+      body: JSON.stringify({ productId, differenceRate }),
     });
   }
 }

@@ -13,6 +13,7 @@ interface ProductInfoModalProps {
     differenceRate: number;
     productDescription: string;
     status: string;
+    imageUrl?: string;
   };
   onSave?: () => void;
 }
@@ -31,6 +32,7 @@ const ProductInfoModal: React.FC<ProductInfoModalProps> = ({
     differenceRate: productData?.differenceRate || 0,
     productDescription: productData?.productDescription || "",
     status: productData?.status?.toLowerCase(),
+    imageUrl: productData?.imageUrl || "",
   });
 
   console.log("Product's Master Categories:", productData?.masterCategories);
@@ -38,10 +40,14 @@ const ProductInfoModal: React.FC<ProductInfoModalProps> = ({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   // Update formData whenever productData changes
   useEffect(() => {
     if (productData) {
+      console.log('ProductInfoModal - Received productData:', productData);
+      console.log('ProductInfoModal - Image URL:', productData.imageUrl);
+
       setFormData({
         productName: productData.productName,
         sellerName: productData.sellerName,
@@ -49,7 +55,10 @@ const ProductInfoModal: React.FC<ProductInfoModalProps> = ({
         differenceRate: productData.differenceRate || 0,
         productDescription: productData.productDescription,
         status: productData.status?.toLowerCase(),
+        imageUrl: productData.imageUrl || "",
       });
+
+      console.log('ProductInfoModal - formData updated with imageUrl:', productData.imageUrl);
     }
   }, [productData]);
 
@@ -59,6 +68,62 @@ const ProductInfoModal: React.FC<ProductInfoModalProps> = ({
     setFormData((prev) => ({
       ...prev,
       [field]: value,
+    }));
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image size should be less than 5MB');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setError(null);
+
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('http://localhost:3002/api/seller/products/admin/upload-image', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'SUCCESS' && data.data?.imageUrl) {
+        setFormData(prev => ({
+          ...prev,
+          imageUrl: data.data.imageUrl,
+        }));
+      } else {
+        throw new Error(data.message || 'Failed to upload image');
+      }
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      setError(err instanceof Error ? err.message : 'Failed to upload image');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData(prev => ({
+      ...prev,
+      imageUrl: '',
     }));
   };
 
@@ -78,16 +143,33 @@ const ProductInfoModal: React.FC<ProductInfoModalProps> = ({
         description: formData.productDescription,
         primaryCategory: formData.masterCategories,
         status: formData.status,
-        // Note: sellerName and differenceRate are read-only in this context
-        // status is managed separately via updateProductStatus API
+        imageUrl: formData.imageUrl,
       };
 
       console.log("Saving product data:", updateData);
 
+      // Update product basic information
       const response = await apiClient.updateProduct(productId, updateData);
 
       if (response.status === "SUCCESS") {
         console.log("Product updated successfully");
+
+        // Update product difference rate separately
+        if (formData.differenceRate !== productData?.differenceRate) {
+          console.log("Updating product difference rate:", formData.differenceRate);
+          try {
+            const diffResponse = await apiClient.createOrUpdateProductDifference(
+              productId,
+              formData.differenceRate
+            );
+            console.log("Product difference updated:", diffResponse);
+          } catch (diffError) {
+            console.error("Error updating product difference:", diffError);
+            setError("Product updated but failed to update difference rate");
+            setSaving(false);
+            return;
+          }
+        }
 
         // Call the onSave callback to refresh the product list
         if (onSave) {
@@ -256,29 +338,77 @@ const ProductInfoModal: React.FC<ProductInfoModalProps> = ({
           {/* Documents */}
           <div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Documents
+              Document
             </h3>
             <div className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center space-x-3 mb-3">
-                <div className="w-8 h-8 bg-primary-100 rounded flex items-center justify-center">
-                  <span className="text-primary-600 text-sm">📄</span>
+              {formData.imageUrl ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-500 mb-2">Image URL: {formData.imageUrl}</p>
+                  {/* Image Preview */}
+                  <div className="relative w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
+                    <img
+                      src={formData.imageUrl}
+                      alt="Product"
+                      className="w-full h-full object-cover"
+                      onLoad={() => console.log('Image loaded successfully:', formData.imageUrl)}
+                      onError={(e) => {
+                        console.error('Image failed to load:', formData.imageUrl);
+                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect fill="%23f3f4f6" width="200" height="200"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%239ca3af"%3ENo Image%3C/text%3E%3C/svg%3E';
+                      }}
+                    />
+                  </div>
+                  {/* Actions */}
+                  <div className="flex space-x-2">
+                    <a
+                      href={formData.imageUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center space-x-1 px-3 py-1 bg-primary-50 text-primary-600 rounded text-sm hover:bg-primary-100"
+                    >
+                      <span>View Full Size</span>
+                    </a>
+                    <label className="flex items-center space-x-1 px-3 py-1 bg-primary-50 text-primary-600 rounded text-sm hover:bg-primary-100 cursor-pointer">
+                      <Upload className="w-3 h-3" />
+                      <span>{uploading ? 'Uploading...' : 'Change Image'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={uploading}
+                        className="hidden"
+                      />
+                    </label>
+                    <button
+                      onClick={handleRemoveImage}
+                      disabled={uploading}
+                      className="px-3 py-1 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      🗑️ Remove
+                    </button>
+                  </div>
                 </div>
-                <span className="text-sm font-medium text-gray-900">
-                  product-image.png
-                </span>
-              </div>
-              <div className="flex space-x-2">
-                <button className="flex items-center space-x-1 px-3 py-1 bg-primary-50 text-primary-600 rounded text-sm hover:bg-primary-100">
-                  <span>Open</span>
-                </button>
-                <button className="flex items-center space-x-1 px-3 py-1 bg-primary-50 text-primary-600 rounded text-sm hover:bg-primary-100">
-                  <Upload className="w-3 h-3" />
-                  <span>Upload</span>
-                </button>
-                <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50">
-                  🗑️
-                </button>
-              </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="mb-4">
+                    <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center">
+                      <Upload className="w-8 h-8 text-gray-400" />
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">No image uploaded</p>
+                  <label className="inline-flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 cursor-pointer">
+                    <Upload className="w-4 h-4" />
+                    <span>{uploading ? 'Uploading...' : 'Upload Image'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      disabled={uploading}
+                      className="hidden"
+                    />
+                  </label>
+                  <p className="text-xs text-gray-500 mt-2">Max size: 5MB</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

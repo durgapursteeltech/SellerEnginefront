@@ -7,6 +7,7 @@ import { apiClient } from '../utils/api'
 interface DealerItem {
   sellerId: string
   sellerName: string
+  brandName?: string
   status: 'Pending' | 'Approved' | 'Rejected'
   registrationDate: string
   masterCategory: string
@@ -103,6 +104,7 @@ export default function DealerPortalTable() {
         const transformedSellers: DealerItem[] = response.data.sellers.map((seller: any) => ({
           sellerId: seller.sellerId,
           sellerName: seller.firmName || seller.companyName || 'Unknown Company',
+          brandName: seller.brandName || '',
           status: (seller.status === 'active' ? 'Approved' :
                   seller.status === 'pending' ? 'Pending' : 'Rejected') as 'Pending' | 'Approved' | 'Rejected',
           registrationDate: new Date(seller.createdAt).toLocaleDateString('en-GB'),
@@ -476,6 +478,7 @@ export default function DealerPortalTable() {
         sellerId={selectedSeller?.sellerId}
         sellerData={selectedSeller ? {
           sellerName: selectedSeller.sellerName,
+          brandName: selectedSeller.brandName,
           email: selectedSeller.email,
           phone: selectedSeller.phone,
           gstin: selectedSeller.gstin,

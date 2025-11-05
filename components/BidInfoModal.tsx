@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ChevronDown } from 'lucide-react';
 
 interface BidInfoModalProps {
@@ -24,8 +24,25 @@ const BidInfoModal: React.FC<BidInfoModalProps> = ({ isOpen, onClose, bidData })
     bidAmount: bidData?.bidAmount || 0,
     bidQty: bidData?.bidQty || 0,
     masterCategories: bidData?.masterCategories || '',
-    status: bidData?.status || 'Approved'
+    status: bidData?.status || 'Created',
+    date: bidData?.date || ''
   });
+
+  // Update formData whenever bidData changes
+  useEffect(() => {
+    if (bidData) {
+      setFormData({
+        bidId: bidData.bidId,
+        sellerName: bidData.sellerName,
+        dealerName: bidData.dealerName,
+        bidAmount: bidData.bidAmount,
+        bidQty: bidData.bidQty,
+        masterCategories: bidData.masterCategories,
+        status: bidData.status,
+        date: bidData.date
+      });
+    }
+  }, [bidData]);
 
   if (!isOpen) return null;
 
@@ -54,7 +71,7 @@ const BidInfoModal: React.FC<BidInfoModalProps> = ({ isOpen, onClose, bidData })
           <div className="flex items-center space-x-3">
             <h2 className="text-xl font-semibold text-gray-900">Bid Information</h2>
             <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-              12th August 2024 • 11:25 AM
+              {formData.date || '12th August 2024 • 11:25 AM'}
             </span>
           </div>
           <button
@@ -76,8 +93,8 @@ const BidInfoModal: React.FC<BidInfoModalProps> = ({ isOpen, onClose, bidData })
               <input
                 type="text"
                 value={formData.bidId}
-                onChange={(e) => handleInputChange('bidId', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                disabled
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
               />
             </div>
             <div>
@@ -87,9 +104,9 @@ const BidInfoModal: React.FC<BidInfoModalProps> = ({ isOpen, onClose, bidData })
               <input
                 type="text"
                 value={formData.sellerName}
-                onChange={(e) => handleInputChange('sellerName', e.target.value)}
+                disabled
                 placeholder="Placeholder Text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
               />
             </div>
             <div>
@@ -99,9 +116,9 @@ const BidInfoModal: React.FC<BidInfoModalProps> = ({ isOpen, onClose, bidData })
               <input
                 type="text"
                 value={formData.dealerName}
-                onChange={(e) => handleInputChange('dealerName', e.target.value)}
+                disabled
                 placeholder="Placeholder Text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
               />
             </div>
           </div>
@@ -112,31 +129,25 @@ const BidInfoModal: React.FC<BidInfoModalProps> = ({ isOpen, onClose, bidData })
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Bid Amount
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={formData.bidAmount || ''}
-                  onChange={(e) => handleInputChange('bidAmount', e.target.value)}
-                  placeholder="Number Text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent pr-8"
-                />
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              </div>
+              <input
+                type="text"
+                value={`₹${formData.bidAmount?.toLocaleString() || '0'}`}
+                disabled
+                placeholder="Number Text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Bid Qty.
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={formData.bidQty || ''}
-                  onChange={(e) => handleInputChange('bidQty', e.target.value)}
-                  placeholder="Number Text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent pr-8"
-                />
-                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              </div>
+              <input
+                type="text"
+                value={`${formData.bidQty || '0'} MT`}
+                disabled
+                placeholder="Number Text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -145,9 +156,9 @@ const BidInfoModal: React.FC<BidInfoModalProps> = ({ isOpen, onClose, bidData })
               <input
                 type="text"
                 value={formData.masterCategories}
-                onChange={(e) => handleInputChange('masterCategories', e.target.value)}
+                disabled
                 placeholder="Placeholder Text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-600 cursor-not-allowed"
               />
             </div>
           </div>
@@ -164,8 +175,8 @@ const BidInfoModal: React.FC<BidInfoModalProps> = ({ isOpen, onClose, bidData })
                   onChange={(e) => handleInputChange('status', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent appearance-none bg-white"
                 >
-                  <option value="Approved">Approved</option>
-                  <option value="Pending">Pending</option>
+                  <option value="Created">Created</option>
+                  <option value="Accepted">Accepted</option>
                   <option value="Rejected">Rejected</option>
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />

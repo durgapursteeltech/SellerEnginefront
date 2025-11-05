@@ -1,22 +1,21 @@
 'use client'
 
-import { 
-  Home, 
-  Users, 
-  UserCheck, 
-  Package, 
-  DollarSign, 
-  Gavel, 
-  ShoppingCart, 
-  Truck, 
-  MessageCircle, 
-  HelpCircle, 
-  Settings, 
+import {
+  Home,
+  Users,
+  UserCheck,
+  Package,
+  DollarSign,
+  Gavel,
+  ShoppingCart,
+  Truck,
+  MessageCircle,
+  HelpCircle,
+  Settings,
   LogOut,
   ChevronDown,
   User,
   Shield,
-  Edit3,
   GitFork
 } from 'lucide-react'
 import { useState } from 'react'
@@ -25,6 +24,7 @@ import { useAuth } from '@/contexts/AuthContext'
 interface SidebarProps {
   activeItem: string
   onItemClick: (item: string) => void
+  unreadSupportCount?: number
 }
 
 const menuItems = [
@@ -32,7 +32,6 @@ const menuItems = [
   { id: 'sellers', label: 'Sellers', icon: Users },
   { id: 'seller-users', label: 'Seller Users', icon: UserCheck },
   { id: 'products', label: 'Products', icon: Package },
-  { id: 'main-products', label: 'Main Products', icon: Edit3 },
   {id: 'master-categories', label: 'Master Categories', icon: GitFork},
   { id: 'master-rates', label: 'Master Rates', icon: DollarSign },
   { id: 'bids', label: 'Bids', icon: Gavel },
@@ -42,7 +41,7 @@ const menuItems = [
   { id: 'support-chat', label: 'Support Chat', icon: HelpCircle },
 ]
 
-export default function Sidebar({ activeItem, onItemClick }: SidebarProps) {
+export default function Sidebar({ activeItem, onItemClick, unreadSupportCount = 0 }: SidebarProps) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const { user, logout, isSuperAdmin } = useAuth()
 
@@ -80,18 +79,24 @@ export default function Sidebar({ activeItem, onItemClick }: SidebarProps) {
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon
+            const showBadge = item.id === 'support-chat' && unreadSupportCount > 0
             return (
               <li key={item.id}>
                 <button
                   onClick={() => onItemClick(item.id)}
-                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${
+                  className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors relative ${
                     activeItem === item.id
                       ? 'bg-primary-600 text-white'
                       : 'text-gray-300 hover:bg-sidebar-hover hover:text-white'
                   }`}
                 >
                   <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {showBadge && (
+                    <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-semibold rounded-full">
+                      {unreadSupportCount > 99 ? '99+' : unreadSupportCount}
+                    </span>
+                  )}
                 </button>
               </li>
             )

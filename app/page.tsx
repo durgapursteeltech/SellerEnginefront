@@ -12,7 +12,6 @@ import DealerPortalTable from "@/components/DealerPortalTable";
 import SellerUsersTable from "@/components/SellerUsersTable";
 import ProductsTable from "@/components/ProductsTable";
 import MasterRatesTable from "@/components/MasterRatesTable";
-import MainProductsTable from "@/components/MainProductsTable";
 import BidsTable from "@/components/BidsTable";
 import OrdersTable from "@/components/OrdersTable";
 import TrucksTable from "@/components/TrucksTable";
@@ -27,6 +26,7 @@ export default function Home() {
   const [isOnlineSellersModalOpen, setIsOnlineSellersModalOpen] = useState(false);
   const [dashboardStats, setDashboardStats] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [unreadSupportCount, setUnreadSupportCount] = useState(0);
 
   // Fetch dashboard stats
   const fetchDashboardStats = async () => {
@@ -66,10 +66,46 @@ export default function Home() {
 
   useEffect(() => {
     fetchDashboardStats();
-  }, []);
+
+    // Connect to socket and listen for new support messages
+    const setupSocketListener = async () => {
+      const socketServiceModule = await import('@/services/socketService');
+      const socketService = socketServiceModule.default;
+
+      socketService.connect();
+
+      // Listen for new group messages
+      const handleNewSupportMessage = (data: any) => {
+        console.log('New support message received in page.tsx:', data);
+        // Only increment if user is not on support-chat view
+        if (currentView !== 'support-chat') {
+          setUnreadSupportCount(prev => prev + 1);
+        }
+      };
+
+      socketService.onGroupMessage(handleNewSupportMessage);
+
+      // Cleanup
+      return () => {
+        socketService.offGroupMessage(handleNewSupportMessage);
+      };
+    };
+
+    const cleanup = setupSocketListener();
+
+    return () => {
+      cleanup.then(cleanupFn => cleanupFn && cleanupFn());
+    };
+  }, [currentView]);
 
   const handleItemClick = (item: string) => {
     setActiveItem(item);
+
+    // Clear unread count when opening support chat
+    if (item === "support-chat") {
+      setUnreadSupportCount(0);
+    }
+
     if (item === "dashboard") {
       setCurrentView("dashboard");
     } else if (item === "sellers") {
@@ -152,25 +188,7 @@ export default function Home() {
       );
     }
 
-    if (currentView === "main-products") {
-      return (
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-2">
-              <div className="bg-primary-600 text-white px-3 py-1 rounded text-sm">
-                Admin Dashboard
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Bell className="w-6 h-6 text-gray-600" />
-            </div>
-          </div>
-          <MainProductsTable />
-        </div>
-      );
-    }
-
-        if (currentView === "master-categories") {
+    if (currentView === "master-categories") {
       return (
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
@@ -350,7 +368,11 @@ export default function Home() {
   return (
     <ProtectedRoute>
       <div className="flex h-screen bg-gray-50">
-        <Sidebar activeItem={activeItem} onItemClick={handleItemClick} />
+        <Sidebar
+          activeItem={activeItem}
+          onItemClick={handleItemClick}
+          unreadSupportCount={unreadSupportCount}
+        />
         <main className="flex-1 overflow-auto">{renderMainContent()}</main>
 
         {/* Online Sellers Modal */}

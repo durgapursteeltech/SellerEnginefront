@@ -1,8 +1,8 @@
 import { io, Socket } from 'socket.io-client';
 
 // const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://dst-engine-uat.onrender.com';
-const API_BASE_URL = 'https://sellerengine.onrender.com';
-// const API_BASE_URL = 'http://localhost:3002';
+//const API_BASE_URL = 'https://sellerengine.onrender.com';
+const API_BASE_URL = 'http://localhost:3002';
 
 class SocketService {
   private socket: Socket | null = null;
@@ -68,6 +68,12 @@ class SocketService {
       this.socket?.emit('supportMessageReceived', data);
     });
 
+    this.socket.on('groupMessage', (data) => {
+      console.log('Received group message:', data);
+      // Emit custom event for components to listen to
+      this.socket?.emit('groupMessageReceived', data);
+    });
+
     this.socket.on('error', (error) => {
       console.error('Socket error:', error);
     });
@@ -90,25 +96,39 @@ class SocketService {
 
     this.reconnectAttempts++;
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-    
+
     console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
-    
+
     setTimeout(() => {
       this.connect();
     }, delay);
   }
 
-  // Method to listen for support messages
+  // Method to listen for support messages (legacy - one-on-one)
   onSupportMessage(callback: (data: any) => void): void {
     if (this.socket) {
       this.socket.on('supportMessage', callback);
     }
   }
 
-  // Method to remove support message listener
+  // Method to remove support message listener (legacy)
   offSupportMessage(callback: (data: any) => void): void {
     if (this.socket) {
       this.socket.off('supportMessage', callback);
+    }
+  }
+
+  // Method to listen for group messages
+  onGroupMessage(callback: (data: any) => void): void {
+    if (this.socket) {
+      this.socket.on('groupMessage', callback);
+    }
+  }
+
+  // Method to remove group message listener
+  offGroupMessage(callback: (data: any) => void): void {
+    if (this.socket) {
+      this.socket.off('groupMessage', callback);
     }
   }
 

@@ -33,6 +33,12 @@ const SellerUserInfoModal: React.FC<SellerUserInfoModalProps> = ({ isOpen, onClo
     name: '',
     userType: ''
   });
+  const [permissions, setPermissions] = useState({
+    manageBids: true,
+    manageEmployees: true,
+    manageProducts: true,
+    manageRates: true
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,6 +55,15 @@ const SellerUserInfoModal: React.FC<SellerUserInfoModalProps> = ({ isOpen, onClo
       name: userData.name || '',
       userType: userData.userType || userData.role || ''
     });
+
+    // Set permissions from userData or use defaults
+    setPermissions({
+      manageBids: userData.permissions?.manageBids ?? true,
+      manageEmployees: userData.permissions?.manageEmployees ?? true,
+      manageProducts: userData.permissions?.manageProducts ?? true,
+      manageRates: userData.permissions?.manageRates ?? true
+    });
+
     setError(null);
   }, [isOpen, userData]);
 
@@ -63,6 +78,13 @@ const SellerUserInfoModal: React.FC<SellerUserInfoModalProps> = ({ isOpen, onClo
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const handlePermissionToggle = (permission: keyof typeof permissions) => {
+    setPermissions(prev => ({
+      ...prev,
+      [permission]: !prev[permission]
+    }));
   };
 
   const handleSave = async () => {
@@ -81,6 +103,7 @@ const SellerUserInfoModal: React.FC<SellerUserInfoModalProps> = ({ isOpen, onClo
         email: formData.email,
         phone: formData.phoneNumber,
         userType: formData.userType,
+        permissions: permissions
       });
 
       if (response.status === 'SUCCESS') {
@@ -130,13 +153,13 @@ const SellerUserInfoModal: React.FC<SellerUserInfoModalProps> = ({ isOpen, onClo
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Seller Name
+                User Name
               </label>
               <input
                 type="text"
-                value={formData.sellerName}
-                onChange={(e) => handleInputChange('sellerName', e.target.value)}
-                placeholder="Placeholder Text"
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                placeholder="Enter user name"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
               />
             </div>
@@ -149,7 +172,7 @@ const SellerUserInfoModal: React.FC<SellerUserInfoModalProps> = ({ isOpen, onClo
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
-                  placeholder="Placeholder Text"
+                  placeholder="Enter email address"
                   className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
                 />
                 <button
@@ -162,6 +185,34 @@ const SellerUserInfoModal: React.FC<SellerUserInfoModalProps> = ({ isOpen, onClo
             </div>
           </div>
 
+          {/* Seller Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Seller Name
+              </label>
+              <input
+                type="text"
+                value={formData.sellerName}
+                disabled
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600 cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={formData.phoneNumber}
+                onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
+                placeholder="Enter phone number"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Role Selection */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -180,43 +231,82 @@ const SellerUserInfoModal: React.FC<SellerUserInfoModalProps> = ({ isOpen, onClo
                 <option value="employee">Employee</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                value={formData.phoneNumber}
-                onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
-                placeholder="Placeholder Text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-              />
-            </div>
           </div>
 
-          {/* GSTIN Section */}
+          {/* Permissions Section */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">GSTIN</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  All Items
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Permissions</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900">
+                    Manage Bids
+                  </label>
+                  <p className="text-xs text-gray-500">Allow user to create, view, and manage bids</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={permissions.manageBids}
+                    onChange={() => handlePermissionToggle('manageBids')}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
                 </label>
-                <input
-                  type="text"
-                  placeholder="Placeholder Text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-                />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Documents
+
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900">
+                    Manage Employees
+                  </label>
+                  <p className="text-xs text-gray-500">Allow user to add, edit, and manage employee accounts</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={permissions.manageEmployees}
+                    onChange={() => handlePermissionToggle('manageEmployees')}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
                 </label>
-                <input
-                  type="text"
-                  placeholder="Placeholder Text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
-                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900">
+                    Manage Products
+                  </label>
+                  <p className="text-xs text-gray-500">Allow user to add, edit, and manage product listings</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={permissions.manageProducts}
+                    onChange={() => handlePermissionToggle('manageProducts')}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900">
+                    Manage Rates
+                  </label>
+                  <p className="text-xs text-gray-500">Allow user to view and update pricing rates</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={permissions.manageRates}
+                    onChange={() => handlePermissionToggle('manageRates')}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                </label>
               </div>
             </div>
           </div>

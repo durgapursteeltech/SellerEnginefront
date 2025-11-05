@@ -7,6 +7,7 @@ interface SellerInfoModalProps {
   sellerId?: string;
   sellerData?: {
     sellerName: string;
+    brandName?: string;
     email: string;
     phone: string;
     gstin: string;
@@ -30,6 +31,7 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     sellerName: sellerData?.sellerName || "",
+    brandName: sellerData?.brandName || "",
     email: sellerData?.email || "",
     phone: sellerData?.phone || "",
     gstin: sellerData?.gstin || "",
@@ -42,11 +44,17 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
     zipcode: sellerData?.zipcode || "",
   });
 
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [originalBrandName, setOriginalBrandName] = useState("");
+
   // Update formData when sellerData changes
   useEffect(() => {
     if (sellerData) {
       setFormData({
         sellerName: sellerData.sellerName || "",
+        brandName: sellerData.brandName || "",
         email: sellerData.email || "",
         phone: sellerData.phone || "",
         gstin: sellerData.gstin || "",
@@ -58,6 +66,8 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
         city: sellerData.city || "",
         zipcode: sellerData.zipcode || "",
       });
+      // Store original brandName to check if it changed
+      setOriginalBrandName(sellerData.brandName || "");
     }
   }, [sellerData]);
 
@@ -80,12 +90,32 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
       return;
     }
 
+    // Check if brandName has changed
+    const brandNameChanged = formData.brandName !== originalBrandName;
+
+    if (brandNameChanged) {
+      // Show password modal if brandName changed
+      setShowPasswordModal(true);
+      return;
+    }
+
+    // If brandName hasn't changed, proceed with regular update
+    await performUpdate();
+  };
+
+  const performUpdate = async () => {
+    if (!sellerId) {
+      alert('Seller ID is missing. Cannot save changes.');
+      return;
+    }
+
     try {
       // Import apiClient at the top if not already imported
       const { apiClient } = await import('../utils/api');
 
       const updateData = {
         firmName: formData.sellerName,
+        brandName: formData.brandName,
         sellerEmail: formData.email,
         phoneNo: formData.phone,
         gstNo: formData.gstin,
@@ -114,9 +144,109 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
     }
   };
 
+  const performUpdateExcludingBrandName = async () => {
+    if (!sellerId) {
+      alert('Seller ID is missing. Cannot save changes.');
+      return;
+    }
+
+    try {
+      // Import apiClient at the top if not already imported
+      const { apiClient } = await import('../utils/api');
+
+      // Update all fields EXCEPT brandName (since it was already updated via password-protected endpoint)
+      const updateData = {
+        firmName: formData.sellerName,
+        // brandName is excluded intentionally - already updated
+        sellerEmail: formData.email,
+        phoneNo: formData.phone,
+        gstNo: formData.gstin,
+        bankName: formData.bankName,
+        accountNumber: formData.accountNumber,
+        ifsc: formData.ifsc,
+        address: formData.address,
+        city: formData.city,
+        pincode: formData.zipcode,
+      };
+
+      console.log("Saving seller data (excluding brandName):", updateData);
+
+      const response = await apiClient.updateSeller(sellerId, updateData);
+
+      if (response.status === 'SUCCESS') {
+        alert('Seller information updated successfully!');
+        onSave?.(); // Call the onSave callback to refresh the table
+        onClose();
+      } else {
+        alert('Failed to update seller information. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error saving seller data:', error);
+      alert('An error occurred while saving. Please try again.');
+    }
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!password) {
+      setPasswordError("Password is required");
+      return;
+    }
+
+    if (!sellerId) {
+      alert('Seller ID is missing. Cannot save changes.');
+      return;
+    }
+
+    try {
+      // Call the special brandName update endpoint with password verification
+      const token = localStorage.getItem('adminToken');
+
+      const response = await fetch(`http://localhost:3002/api/seller/sellers/admin/${sellerId}/brandname`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          brandName: formData.brandName,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'SUCCESS') {
+        // Password verified and brandName updated successfully
+        setShowPasswordModal(false);
+        setPassword("");
+        setPasswordError("");
+
+        // Update the originalBrandName so it won't trigger verification again
+        setOriginalBrandName(formData.brandName);
+
+        // Now update other fields if any changed (excluding brandName since it's already updated)
+        await performUpdateExcludingBrandName();
+      } else {
+        // Password verification failed
+        setPasswordError(data.message || "Invalid password. Please try again.");
+      }
+    } catch (error) {
+      console.error('Error verifying password:', error);
+      setPasswordError("An error occurred. Please try again.");
+    }
+  };
+
+  const handlePasswordModalClose = () => {
+    setShowPasswordModal(false);
+    setPassword("");
+    setPasswordError("");
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <>
+      {/* Main Modal */}
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-900">
@@ -145,6 +275,20 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
                   handleInputChange("sellerName", e.target.value)
                 }
                 placeholder="Placeholder Text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Brand Name
+              </label>
+              <input
+                type="text"
+                value={formData.brandName}
+                onChange={(e) =>
+                  handleInputChange("brandName", e.target.value)
+                }
+                placeholder="Enter brand name"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
               />
             </div>
@@ -371,8 +515,65 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
             Save Changes
           </button>
         </div>
+        </div>
       </div>
-    </div>
+
+      {/* Password Verification Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Verify Password
+              </h3>
+              <p className="text-sm text-gray-600">
+                Please enter your password to update the brand name.
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setPasswordError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handlePasswordSubmit();
+                  }
+                }}
+                placeholder="Enter your password"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent"
+                autoFocus
+              />
+              {passwordError && (
+                <p className="mt-2 text-sm text-red-600">{passwordError}</p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end space-x-3">
+              <button
+                onClick={handlePasswordModalClose}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePasswordSubmit}
+                className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+              >
+                Verify & Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

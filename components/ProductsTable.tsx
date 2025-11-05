@@ -56,6 +56,9 @@ export default function ProductsTable({ refreshTrigger }: ProductsTableProps) {
   const [statusFilter, setStatusFilter] = useState('All')
   const [sellerFilter, setSellerFilter] = useState('All')
   const [categoryFilter, setCategoryFilter] = useState('All')
+  const [productDifferences, setProductDifferences] = useState<Record<string, number>>({})
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([])
+  const [bulkActionLoading, setBulkActionLoading] = useState(false)
 
   // Get unique sellers and categories for filter dropdowns
   const uniqueSellers = Array.from(new Set(products.map(product => product.sellerInfo?.firmName || product.sellerId).filter(Boolean)))
@@ -65,12 +68,17 @@ export default function ProductsTable({ refreshTrigger }: ProductsTableProps) {
     try {
       setLoading(true)
       setError(null)
-      
+
       const response = await apiClient.getAllProducts()
-      
+
       if (response.status === 'SUCCESS' && response.data) {
-        setProducts(response.data.products || [])
-        console.log('Fetched products:', response.data.products)
+        const fetchedProducts = response.data.products || []
+        setProducts(fetchedProducts)
+        console.log('Fetched products:', fetchedProducts)
+        console.log('First product imageUrl:', fetchedProducts[0]?.imageUrl)
+
+        // Fetch product differences for all products
+        await fetchProductDifferences(fetchedProducts)
       } else {
         throw new Error(response.message || 'Failed to fetch products')
       }
@@ -80,6 +88,42 @@ export default function ProductsTable({ refreshTrigger }: ProductsTableProps) {
       setProducts([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchProductDifferences = async (products: Product[]) => {
+    try {
+      // Fetch product differences for all products
+      const differenceMap: Record<string, number> = {}
+
+      // Make API calls for each product to get their difference rate
+      await Promise.all(
+        products.map(async (product) => {
+          try {
+            const response = await apiClient.getProductDifferenceByProductId(product._id)
+            if (response.success && response.data) {
+              const differenceData = response.data as { differenceRate?: number }
+              differenceMap[product._id] = differenceData.differenceRate || 0
+            } else {
+              // No difference rate set for this product
+              differenceMap[product._id] = 0
+            }
+          } catch (error: any) {
+            // Only log unexpected errors, not 404s (which are normal when no difference is set)
+            const isNotFoundError = error?.message?.includes('not found') || error?.message?.includes('404')
+            if (!isNotFoundError) {
+              console.error(`Error fetching difference for product ${product._id}:`, error)
+            }
+            // Set to 0 if there's no difference or error (404 means no difference set)
+            differenceMap[product._id] = 0
+          }
+        })
+      )
+
+      setProductDifferences(differenceMap)
+      console.log('Product differences fetched:', differenceMap)
+    } catch (error) {
+      console.error('Error fetching product differences:', error)
     }
   }
 
@@ -105,6 +149,89 @@ export default function ProductsTable({ refreshTrigger }: ProductsTableProps) {
     } catch (err) {
       console.error(`Error ${status}ing product:`, err)
       alert(`Failed to ${status} product: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    }
+  }
+
+  // Handle select all checkbox
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allProductIds = filteredProducts.map(p => p._id)
+      setSelectedProducts(allProductIds)
+    } else {
+      setSelectedProducts([])
+    }
+  }
+
+  // Handle individual product selection
+  const handleSelectProduct = (productId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedProducts(prev => [...prev, productId])
+    } else {
+      setSelectedProducts(prev => prev.filter(id => id !== productId))
+    }
+  }
+
+  // Handle bulk approve
+  const handleBulkApprove = async () => {
+    if (selectedProducts.length === 0) {
+      alert('Please select products to approve')
+      return
+    }
+
+    if (!confirm(`Are you sure you want to approve ${selectedProducts.length} product(s)?`)) {
+      return
+    }
+
+    try {
+      setBulkActionLoading(true)
+
+      // Update each product status
+      await Promise.all(
+        selectedProducts.map(productId =>
+          apiClient.updateProductStatus(productId, 'approved')
+        )
+      )
+
+      alert(`Successfully approved ${selectedProducts.length} product(s)`)
+      setSelectedProducts([])
+      await fetchProducts()
+    } catch (err) {
+      console.error('Error bulk approving products:', err)
+      alert(`Failed to approve products: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setBulkActionLoading(false)
+    }
+  }
+
+  // Handle bulk reject
+  const handleBulkReject = async () => {
+    if (selectedProducts.length === 0) {
+      alert('Please select products to reject')
+      return
+    }
+
+    if (!confirm(`Are you sure you want to reject ${selectedProducts.length} product(s)?`)) {
+      return
+    }
+
+    try {
+      setBulkActionLoading(true)
+
+      // Update each product status
+      await Promise.all(
+        selectedProducts.map(productId =>
+          apiClient.updateProductStatus(productId, 'rejected')
+        )
+      )
+
+      alert(`Successfully rejected ${selectedProducts.length} product(s)`)
+      setSelectedProducts([])
+      await fetchProducts()
+    } catch (err) {
+      console.error('Error bulk rejecting products:', err)
+      alert(`Failed to reject products: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setBulkActionLoading(false)
     }
   }
 
@@ -187,13 +314,44 @@ export default function ProductsTable({ refreshTrigger }: ProductsTableProps) {
             Products ({filteredProducts.length})
           </h2>
           <div className="flex items-center space-x-2">
-            <button 
+            <button
               onClick={fetchProducts}
               className="text-primary-600 hover:text-primary-800 text-sm"
             >
               Refresh
             </button>
-            <button 
+
+            {/* Bulk Action Buttons */}
+            {selectedProducts.length > 0 && (
+              <>
+                <button
+                  onClick={handleBulkApprove}
+                  disabled={bulkActionLoading}
+                  className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bulkActionLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <span>✓</span>
+                  )}
+                  <span>Approve ({selectedProducts.length})</span>
+                </button>
+                <button
+                  onClick={handleBulkReject}
+                  disabled={bulkActionLoading}
+                  className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded text-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {bulkActionLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <span>✗</span>
+                  )}
+                  <span>Reject ({selectedProducts.length})</span>
+                </button>
+              </>
+            )}
+
+            <button
               onClick={handleAddProduct}
               className="flex items-center space-x-2 bg-primary-600 text-white px-4 py-2 rounded text-sm hover:bg-primary-700"
             >
@@ -298,7 +456,12 @@ export default function ProductsTable({ refreshTrigger }: ProductsTableProps) {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <input type="checkbox" className="rounded border-gray-300" />
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300 cursor-pointer"
+                  checked={selectedProducts.length > 0 && selectedProducts.length === filteredProducts.length}
+                  onChange={(e) => handleSelectAll(e.target.checked)}
+                />
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Product Name
@@ -337,7 +500,12 @@ export default function ProductsTable({ refreshTrigger }: ProductsTableProps) {
               filteredProducts.map((product) => (
                 <tr key={product._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <input type="checkbox" className="rounded border-gray-300" />
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300 cursor-pointer"
+                      checked={selectedProducts.includes(product._id)}
+                      onChange={(e) => handleSelectProduct(product._id, e.target.checked)}
+                    />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-600">
                     {product.name}
@@ -349,7 +517,7 @@ export default function ProductsTable({ refreshTrigger }: ProductsTableProps) {
                     {product.sellerInfo?.firmName || product.sellerId}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {product.grade || 'N/A'}
+                    ₹{productDifferences[product._id] !== undefined ? productDifferences[product._id] : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(product.status)}`}>
@@ -408,9 +576,10 @@ export default function ProductsTable({ refreshTrigger }: ProductsTableProps) {
           productName: selectedProduct.name,
           sellerName: selectedProduct.sellerInfo?.firmName || selectedProduct.sellerId,
           masterCategories: selectedProduct.primaryCategory,
-          differenceRate: 0, // This field might not be available in ProductV2
+          differenceRate: productDifferences[selectedProduct._id] || 0, // Fetch from database
           productDescription: selectedProduct.description || '',
-          status: selectedProduct.status.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+          status: selectedProduct.status.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+          imageUrl: selectedProduct.imageUrl || ''
         } : undefined}
         onSave={fetchProducts}
       />
