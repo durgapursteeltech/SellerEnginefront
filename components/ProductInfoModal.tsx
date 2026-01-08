@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, Upload, Loader2 } from "lucide-react";
-import { apiClient } from "../utils/api";
+import { apiClient, API_BASE_URL } from "../utils/api";
 
 interface ProductInfoModalProps {
   isOpen: boolean;
@@ -14,6 +14,7 @@ interface ProductInfoModalProps {
     productDescription: string;
     status: string;
     imageUrl?: string;
+    specifications?: Array<{ name: string; value: string }>;
   };
   onSave?: () => void;
 }
@@ -33,6 +34,7 @@ const ProductInfoModal: React.FC<ProductInfoModalProps> = ({
     productDescription: productData?.productDescription || "",
     status: productData?.status?.toLowerCase(),
     imageUrl: productData?.imageUrl || "",
+    specifications: productData?.specifications || [],
   });
 
   console.log("Product's Master Categories:", productData?.masterCategories);
@@ -56,6 +58,7 @@ const ProductInfoModal: React.FC<ProductInfoModalProps> = ({
         productDescription: productData.productDescription,
         status: productData.status?.toLowerCase(),
         imageUrl: productData.imageUrl || "",
+        specifications: productData.specifications || [],
       });
 
       console.log('ProductInfoModal - formData updated with imageUrl:', productData.imageUrl);
@@ -94,7 +97,7 @@ const ProductInfoModal: React.FC<ProductInfoModalProps> = ({
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch('http://localhost:3002/api/seller/products/admin/upload-image', {
+      const response = await fetch(`${API_BASE_URL}/api/seller/products/admin/upload-image`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -127,6 +130,29 @@ const ProductInfoModal: React.FC<ProductInfoModalProps> = ({
     }));
   };
 
+  const handleSpecificationChange = (index: number, field: 'name' | 'value', value: string) => {
+    const updatedSpecs = [...formData.specifications];
+    updatedSpecs[index] = { ...updatedSpecs[index], [field]: value };
+    setFormData(prev => ({
+      ...prev,
+      specifications: updatedSpecs,
+    }));
+  };
+
+  const addSpecification = () => {
+    setFormData(prev => ({
+      ...prev,
+      specifications: [...prev.specifications, { name: '', value: '' }],
+    }));
+  };
+
+  const removeSpecification = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      specifications: prev.specifications.filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSave = async () => {
     if (!productId) {
       setError("Product ID is missing. Cannot save changes.");
@@ -144,6 +170,7 @@ const ProductInfoModal: React.FC<ProductInfoModalProps> = ({
         primaryCategory: formData.masterCategories,
         status: formData.status,
         imageUrl: formData.imageUrl,
+        specifications: formData.specifications.filter(spec => spec.name.trim() && spec.value.trim()),
       };
 
       console.log("Saving product data:", updateData);
@@ -332,6 +359,81 @@ const ProductInfoModal: React.FC<ProductInfoModalProps> = ({
                   <option value="draft">Draft</option>
                 </select>
               </div>
+            </div>
+          </div>
+
+          {/* Specifications */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">
+                Specifications
+              </h3>
+              <button
+                type="button"
+                onClick={addSpecification}
+                className="px-3 py-1 text-sm bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+              >
+                + Add Specification
+              </button>
+            </div>
+            <div className="border border-gray-200 rounded-lg overflow-hidden">
+              {formData.specifications.length > 0 ? (
+                <div className="divide-y divide-gray-200">
+                  {formData.specifications.map((spec, index) => (
+                    <div key={index} className="p-4 bg-gray-50 hover:bg-gray-100 transition-colors">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            Name
+                          </label>
+                          <input
+                            type="text"
+                            value={spec.name}
+                            onChange={(e) => handleSpecificationChange(index, 'name', e.target.value)}
+                            placeholder="e.g., Length, Weight, Material"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent text-sm"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">
+                              Value
+                            </label>
+                            <input
+                              type="text"
+                              value={spec.value}
+                              onChange={(e) => handleSpecificationChange(index, 'value', e.target.value)}
+                              placeholder="e.g., 6m, 100kg, Steel"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent text-sm"
+                            />
+                          </div>
+                          <div className="flex items-end">
+                            <button
+                              type="button"
+                              onClick={() => removeSpecification(index)}
+                              className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-md transition-colors text-sm"
+                              title="Remove specification"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center">
+                  <p className="text-sm text-gray-500 mb-3">No specifications added</p>
+                  <button
+                    type="button"
+                    onClick={addSpecification}
+                    className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    + Add your first specification
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

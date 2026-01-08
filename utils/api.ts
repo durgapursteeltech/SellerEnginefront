@@ -321,27 +321,34 @@ class ApiClient {
     });
   }
 
+  async updateOrderAdmin(orderId: string, orderData: any) {
+    return this.request(`/api/seller/orders/admin/updateone/${orderId}`, {
+      method: 'PUT',
+      body: JSON.stringify(orderData),
+    });
+  }
+
   async deleteOrder(orderId: string) {
     return this.request(`/api/seller/orders/deleteone/${orderId}`, {
       method: 'DELETE',
     });
   }
 
-  // Truck Status Management APIs
+  // Truck Management APIs (using new 'trucks' collection)
   async getAllTruckStatuses() {
     return this.request<{
       success: boolean;
       count: number;
       data: any[];
-    }>('/api/seller/truck-status/all');
+    }>('/api/seller/trucks/seller/all');
   }
 
   async getTruckStatusById(truckId: string) {
-    return this.request(`/api/seller/truck-status/status/${truckId}`);
+    return this.request(`/api/seller/trucks/${truckId}`);
   }
 
   async getTruckStatusByOrderId(orderId: string) {
-    return this.request(`/api/seller/truck-status/order/${orderId}`);
+    return this.request(`/api/seller/trucks/order/${orderId}`);
   }
 
   async getTruckStatusesByDealer(dealerId: string) {
@@ -441,7 +448,7 @@ class ApiClient {
   }
 
   async adminGetAllTruckStatuses() {
-    return this.request('/api/seller/truck-status/admin/all');
+    return this.request('/api/seller/trucks/admin/all');
   }
 
   async adminUpdateBidStatus(bidId: string, status: 'Accepted' | 'Rejected') {
@@ -452,7 +459,7 @@ class ApiClient {
   }
 
   async adminUpdateTruckStatus(truckId: string, truckData: any) {
-    return this.request(`/api/seller/truck-status/admin/update/${truckId}`, {
+    return this.request(`/api/seller/trucks/admin/${truckId}`, {
       method: 'PUT',
       body: JSON.stringify(truckData),
     });
@@ -676,6 +683,70 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ productId, differenceRate }),
     });
+  }
+
+  // Seller-Dealer Chat APIs (Admin)
+  async getAllSellerDealerChats() {
+    return this.request<{
+      chats: Array<{
+        _id: string;
+        chatId: string;
+        groupId: string;
+        chatType: string;
+        sellerId: string;
+        dealerId: string;
+        sellerName: string;
+        dealerName: string;
+        dealerEmail: string;
+        dealerPhone: string;
+        groupTitle: string;
+        status: string;
+        lastMessageAt: string;
+        lastMessage: any | null;
+        sellerUnreadCount: number;
+        dealerUnreadCount: number;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+      count: number;
+    }>('/api/seller/dealer-chat/admin/all');
+  }
+
+  async getSellerDealerChatMessages(chatId: string, params?: { page?: number; limit?: number }) {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+
+    const endpoint = `/api/seller/dealer-chat/admin/${chatId}/messages${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    return this.request<{
+      chat: {
+        messages: Array<{
+          _id: string;
+          messageId: string;
+          chatId: string;
+          senderId: string;
+          senderType: string;
+          senderName: string;
+          content: string;
+          createdAt: string;
+          updatedAt: string;
+          isDeleted: boolean;
+          readBy: any[];
+          attachments: any[];
+        }>;
+      };
+      pagination: {
+        page: number;
+        limit: number;
+        totalPages: number;
+        totalCount: number;
+      };
+    }>(endpoint);
   }
 }
 

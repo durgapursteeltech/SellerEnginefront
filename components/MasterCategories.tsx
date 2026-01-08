@@ -238,12 +238,16 @@ const MasterCategories = () => {
     setError(null);
     try {
       const response = await apiClient.getAllMasterCategories({
-        limit: 10,
+        limit: 1000,
         page: 1
       });
-      
+
+      console.log("Master Categories API Response:", response);
+      console.log("Total categories fetched:", response.data?.length);
+
       if (response.status === "SUCCESS") {
         setMasterCategories(response.data as MasterCategories[]);
+        console.log("Categories set:", response.data);
       } else {
         setError(response.message || "Failed to fetch master categories");
       }

@@ -155,13 +155,48 @@ const SupportChat = () => {
 
   const fetchMessages = async (groupId: string) => {
     try {
-      const response = await apiClient.getGroupMessages(groupId);
-      console.log('fetchMessages response for groupId:', groupId, response);
+      // First, fetch a large limit to get recent messages
+      // Backend sorts by createdAt ascending, so we want the latest page
+      const limit = 100;
+
+      // Get first page to check total count
+      const initialResponse = await apiClient.getGroupMessages(groupId, { page: 1, limit: 10 });
+      console.log('fetchMessages initial response for groupId:', groupId, initialResponse);
+
+      let totalCount = 0;
+      if (initialResponse && (initialResponse as any).pagination) {
+        totalCount = (initialResponse as any).pagination.totalCount;
+      }
+
+      // Calculate which page has the most recent messages
+      const totalPages = Math.ceil(totalCount / limit);
+      const pageToFetch = totalPages > 0 ? totalPages : 1;
+
+      console.log(`Total messages: ${totalCount}, Fetching page ${pageToFetch} of ${totalPages}`);
+
+      // Fetch the last page (most recent messages)
+      const response = await apiClient.getGroupMessages(groupId, { page: pageToFetch, limit });
+      console.log('fetchMessages final response for groupId:', groupId, response);
+
+      // Handle both array and object response formats
+      let messagesArray: ChatMessage[] = [];
 
       if (Array.isArray(response)) {
         console.log('Setting messages from array:', response);
-        setMessages(response);
+        messagesArray = response;
+      } else if (response && response.data && Array.isArray(response.data)) {
+        console.log('Setting messages from response.data:', response.data);
+        messagesArray = response.data;
       }
+
+      // Sort messages by createdAt (oldest first for chat display)
+      const sortedMessages = messagesArray.sort((a, b) => {
+        const timeA = new Date(a.timestamp || (a as any).createdAt).getTime();
+        const timeB = new Date(b.timestamp || (b as any).createdAt).getTime();
+        return timeA - timeB;
+      });
+
+      setMessages(sortedMessages);
     } catch (error) {
       console.error('Error fetching messages:', error);
     }
@@ -224,6 +259,44 @@ const SupportChat = () => {
     } else {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
+  };
+
+  const formatDateSeparator = (dateString: string) => {
+    const messageDate = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    // Reset time parts for comparison
+    messageDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    yesterday.setHours(0, 0, 0, 0);
+
+    if (messageDate.getTime() === today.getTime()) {
+      return 'Today';
+    } else if (messageDate.getTime() === yesterday.getTime()) {
+      return 'Yesterday';
+    } else {
+      return messageDate.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+  };
+
+  const shouldShowDateSeparator = (currentMsg: ChatMessage, previousMsg: ChatMessage | null) => {
+    if (!previousMsg) return true;
+
+    const currentDate = new Date(currentMsg.timestamp || (currentMsg as any).createdAt);
+    const previousDate = new Date(previousMsg.timestamp || (previousMsg as any).createdAt);
+
+    // Reset time parts for comparison
+    currentDate.setHours(0, 0, 0, 0);
+    previousDate.setHours(0, 0, 0, 0);
+
+    return currentDate.getTime() !== previousDate.getTime();
   };
 
   const handleTyping = (value: string) => {
@@ -371,19 +444,33 @@ const SupportChat = () => {
                   </div>
                 ) : (
                   <>
-                    {messages.map((msg) => {
+                    {messages.map((msg, index) => {
                       const isAdmin = msg.senderType === 'admin';
+                      const previousMsg = index > 0 ? messages[index - 1] : null;
+                      const showDateSeparator = shouldShowDateSeparator(msg, previousMsg);
+
                       return (
-                        <div key={msg._id} className={`flex ${isAdmin ? 'justify-start' : 'justify-end'}`}>
-                          <div className={`max-w-xs lg:max-w-md ${isAdmin ? '' : 'ml-auto'}`}>
-                            {!isAdmin && (
-                              <p className="text-xs text-gray-600 mb-1 text-right font-medium">{msg.senderName}</p>
-                            )}
-                            <div className={`px-4 py-2 rounded-lg ${
-                              isAdmin
-                                ? 'bg-gray-200 text-gray-900'
-                                : 'bg-primary-600 text-white'
-                            }`}>
+                        <React.Fragment key={msg._id}>
+                          {/* Date Separator */}
+                          {showDateSeparator && (
+                            <div className="flex items-center justify-center my-4">
+                              <div className="bg-gray-200 text-gray-600 px-4 py-1 rounded-full text-xs font-medium">
+                                {formatDateSeparator(msg.timestamp || (msg as any).createdAt)}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Message */}
+                          <div className={`flex ${isAdmin ? 'justify-start' : 'justify-end'}`}>
+                            <div className={`max-w-xs lg:max-w-md ${isAdmin ? '' : 'ml-auto'}`}>
+                              {!isAdmin && (
+                                <p className="text-xs text-gray-600 mb-1 text-right font-medium">{msg.senderName}</p>
+                              )}
+                              <div className={`px-4 py-2 rounded-lg ${
+                                isAdmin
+                                  ? 'bg-gray-200 text-gray-900'
+                                  : 'bg-primary-600 text-white'
+                              }`}>
                               {/* Attachment display */}
                               {msg.attachment && (
                                 <div className="mb-2">
@@ -439,6 +526,7 @@ const SupportChat = () => {
                             </div>
                           </div>
                         </div>
+                        </React.Fragment>
                       );
                     })}
 

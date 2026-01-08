@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { X, Upload, Copy } from "lucide-react";
+import { X, Copy } from "lucide-react";
+import { API_BASE_URL } from "../utils/api";
 
 interface SellerInfoModalProps {
   isOpen: boolean;
@@ -48,6 +49,8 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [originalBrandName, setOriginalBrandName] = useState("");
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
 
   // Update formData when sellerData changes
   useEffect(() => {
@@ -70,6 +73,37 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
       setOriginalBrandName(sellerData.brandName || "");
     }
   }, [sellerData]);
+
+  // Fetch documents when sellerId changes
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      if (!sellerId) return;
+
+      setLoadingDocuments(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/admin/dashboard/seller-documents/${sellerId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setDocuments(data.data || []);
+        } else {
+          console.error('Failed to fetch documents:', response.status);
+        }
+      } catch (error) {
+        console.error('Error fetching documents:', error);
+      } finally {
+        setLoadingDocuments(false);
+      }
+    };
+
+    if (isOpen && sellerId) {
+      fetchDocuments();
+    }
+  }, [sellerId, isOpen]);
 
   if (!isOpen) return null;
 
@@ -201,7 +235,7 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
       // Call the special brandName update endpoint with password verification
       const token = localStorage.getItem('adminToken');
 
-      const response = await fetch(`http://localhost:3002/api/seller/sellers/admin/${sellerId}/brandname`, {
+      const response = await fetch(`${API_BASE_URL}/api/seller/sellers/admin/${sellerId}/brandname`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -457,46 +491,73 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               Documents
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-8 h-8 bg-primary-100 rounded flex items-center justify-center">
-                    <span className="text-primary-600 text-sm">📄</span>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900">
-                    Filename.png
-                  </span>
-                </div>
-                <div className="flex space-x-2">
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-primary-50 text-primary-600 rounded text-sm hover:bg-primary-100">
-                    <Upload className="w-3 h-3" />
-                    <span>Upload</span>
-                  </button>
-                  <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50">
-                    Open
-                  </button>
-                </div>
+            {loadingDocuments ? (
+              <div className="text-center py-8 text-gray-500">
+                Loading documents...
               </div>
-              <div className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center space-x-3 mb-3">
-                  <div className="w-8 h-8 bg-red-100 rounded flex items-center justify-center">
-                    <span className="text-red-600 text-sm">📄</span>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900">
-                    Filename.png
-                  </span>
-                </div>
-                <div className="flex space-x-2">
-                  <button className="flex items-center space-x-1 px-3 py-1 bg-primary-50 text-primary-600 rounded text-sm hover:bg-primary-100">
-                    <Upload className="w-3 h-3" />
-                    <span>Upload</span>
-                  </button>
-                  <button className="px-3 py-1 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50">
-                    Open
-                  </button>
-                </div>
+            ) : documents.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                No documents uploaded yet
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {documents.map((doc, index) => {
+                  const getDocumentTitle = (type: string) => {
+                    switch (type) {
+                      case 'gst':
+                        return 'GST Certificate';
+                      case 'nocDocument':
+                        return 'NOC Document';
+                      default:
+                        return type;
+                    }
+                  };
+
+                  const getStatusColor = (status: string) => {
+                    switch (status) {
+                      case 'approved':
+                        return 'bg-green-100 text-green-600';
+                      case 'rejected':
+                        return 'bg-red-100 text-red-600';
+                      case 'pending':
+                      default:
+                        return 'bg-yellow-100 text-yellow-600';
+                    }
+                  };
+
+                  const fileName = doc.documentUrl?.split('/').pop() || 'Document';
+
+                  return (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-3 mb-3">
+                        <div className={`w-8 h-8 rounded flex items-center justify-center ${getStatusColor(doc.status)}`}>
+                          <span className="text-sm">📄</span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-gray-900">
+                            {getDocumentTitle(doc.documentType)}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate">
+                            {fileName}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-2 py-1 text-xs rounded ${getStatusColor(doc.status)}`}>
+                          {doc.status || 'pending'}
+                        </span>
+                        <button
+                          onClick={() => window.open(doc.documentUrl, '_blank')}
+                          className="px-3 py-1 border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50"
+                        >
+                          Open
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

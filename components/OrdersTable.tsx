@@ -8,28 +8,36 @@ interface Order {
   orderId: string
   stateCode: string
   user: {
-    userId: string
-    name: string
+    userId: string | {
+      _id: string
+      name: string
+      email: string
+      phone: string
+      tradeName?: string
+    }
+    name?: string
     email: string
-    phone: string
+    phone?: string
   }
   seller: {
     _id: string
     firmName: string
     sellerEmail: string
   }
-  bidId?: {
+  bidId?: string | {
     _id: string
-    bidId: number
-  }
-  product?: {
-    _id: string
-    name: string
-    category: string
+    bidId?: number
+    categoryId?: string | {
+      _id: string
+      name: string
+    }
   }
   bidPrice: number
   approvedPrice: number
   quantity: number
+  quantityLifted: number
+  quantityPlacedFor: number
+  trucks?: string[]
   deliveryLocation: string
   deliveryDate: string
   status: string
@@ -133,9 +141,10 @@ export default function OrdersTable({ refreshTrigger }: OrderTableProps) {
 
   // Filter orders based on search and filters
   const filteredOrders = orders.filter(order => {
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (typeof order.user?.userId === 'object' && order.user.userId?.tradeName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      order.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.seller?.firmName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.status?.toLowerCase().includes(searchTerm.toLowerCase())
     
@@ -164,14 +173,12 @@ export default function OrdersTable({ refreshTrigger }: OrderTableProps) {
     switch (status?.toLowerCase()) {
       case 'approved':
         return 'bg-green-100 text-green-800'
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800'
-      case 'rejected':
-        return 'bg-red-100 text-red-800'
-      case 'processing':
-        return 'bg-blue-100 text-blue-800'
-      case 'delivered':
+      case 'completed':
         return 'bg-purple-100 text-purple-800'
+      case 'suspended':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'flagged for suspension':
+        return 'bg-orange-100 text-orange-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -344,7 +351,9 @@ export default function OrdersTable({ refreshTrigger }: OrderTableProps) {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {order.user?.name || 'N/A'}
+                    {(typeof order.user?.userId === 'object' && order.user.userId?.tradeName)
+                      ? order.user.userId.tradeName
+                      : order.user?.email || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {order.seller?.firmName || 'N/A'}
@@ -383,17 +392,23 @@ export default function OrdersTable({ refreshTrigger }: OrderTableProps) {
       <OrderInfoModal
         isOpen={isOrderInfoModalOpen}
         onClose={() => setIsOrderInfoModalOpen(false)}
+        onSave={fetchOrders}
         orderData={selectedOrder ? {
+          _id: selectedOrder._id,
           orderId: selectedOrder.orderId,
           sellerName: selectedOrder.seller?.firmName || 'N/A',
-          dealerName: selectedOrder.user?.name || 'N/A',
-          productName: selectedOrder.product?.name || 'Product',
+          dealerName: (typeof selectedOrder.user?.userId === 'object' && selectedOrder.user.userId?.tradeName)
+            ? selectedOrder.user.userId.tradeName
+            : selectedOrder.user?.email || 'N/A',
           orderQty: selectedOrder.quantity || 0,
-          masterCategories: selectedOrder.product?.category || 'N/A',
+          quantityLifted: selectedOrder.quantityLifted || 0,
+          quantityPlacedFor: selectedOrder.quantityPlacedFor || 0,
+          masterCategories: (typeof selectedOrder.bidId === 'object' && selectedOrder.bidId?.categoryId && typeof selectedOrder.bidId.categoryId === 'object')
+            ? selectedOrder.bidId.categoryId.name
+            : 'N/A',
           pricePerUnit: selectedOrder.approvedPrice || selectedOrder.bidPrice || 0,
-          productType: selectedOrder.product?.category || 'N/A',
           orderStatus: selectedOrder.status,
-          truckIds: [] // We'll need to fetch truck data separately for this order
+          truckIds: selectedOrder.trucks || []
         } : undefined}
       />
     </div>

@@ -579,7 +579,8 @@ export default function ProductsTable({ refreshTrigger }: ProductsTableProps) {
           differenceRate: productDifferences[selectedProduct._id] || 0, // Fetch from database
           productDescription: selectedProduct.description || '',
           status: selectedProduct.status.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
-          imageUrl: selectedProduct.imageUrl || ''
+          imageUrl: selectedProduct.imageUrl || '',
+          specifications: selectedProduct.specifications || []
         } : undefined}
         onSave={fetchProducts}
       />

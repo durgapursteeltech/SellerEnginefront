@@ -5,24 +5,34 @@ import { apiClient } from '../utils/api'
 
 interface TruckStatus {
   _id: string
-  trackingId: number
+  truckId: string
   dealerId: {
     _id: string
-    name: string
+    tradeName: string
     email: string
-    phone: string
+    phoneNumber: string
   }
-  sellerId: string
+  sellerId: {
+    _id: string
+    brandName: string
+    firmName: string
+  }
   orderId: string
-  truckStatus: 'Pending' | 'Truck Outside Mill' | 'Truck Inside Mill' | 'On Hold' | 'Truck Dispatch'
-  truckNo: string
-  driverPhoneNo: string
-  transporterId?: string
-  transporterPhoneNo?: string
-  currentLocation?: string
-  estimatedDeliveryTime?: string
-  deliveredAt?: string
+  status: 'Truck Outside Mill' | 'Truck Inside Mill' | 'Truck on Hold' | 'Truck Dispatched'
+  vehicleNumber: string
+  vehicleCapacity: number
+  driverMobileNo: string
+  transporterName?: string
+  transporterMobileNo?: string
+  transporterGSTNo?: string
+  orderDetails?: string
+  billDocument?: string[]
+  paymentConfirmationDocument?: string[]
+  paymentConfirmationText?: string
+  quantityToLoad: number
+  loadedQuantity: number
   remarks?: string
+  reportedBy: 'Dealer' | 'Seller'
   createdAt: string
   updatedAt: string
 }
@@ -40,8 +50,18 @@ export default function TrucksTable({ refreshTrigger }: TruckTableProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
 
-  // Get unique statuses for filter dropdown
-  const uniqueStatuses = Array.from(new Set(trucks.map(truck => truck.truckStatus).filter(Boolean)))
+  // Valid truck statuses from the truck model
+  const validStatuses = [
+    'Truck Outside Mill',
+    'Truck Inside Mill',
+    'Truck on Hold',
+    'Truck Dispatched'
+  ]
+
+  // Get unique statuses for filter dropdown (use validStatuses as fallback)
+  const uniqueStatuses = trucks.length > 0
+    ? Array.from(new Set(trucks.map(truck => truck.status).filter(Boolean)))
+    : validStatuses
 
   const fetchTrucks = async () => {
     try {
@@ -58,6 +78,9 @@ export default function TrucksTable({ refreshTrigger }: TruckTableProps) {
       }
       
       if (response && response.data && Array.isArray(response.data)) {
+        console.log('🚚 Raw API Response:', response.data)
+        console.log('🚚 First truck data:', response.data[0])
+        console.log('🚚 First truck status field:', response.data[0]?.status)
         setTrucks(response.data)
         console.log('Fetched truck statuses:', response.data)
       } else {
@@ -95,14 +118,14 @@ export default function TrucksTable({ refreshTrigger }: TruckTableProps) {
 
   // Filter trucks based on search and filters
   const filteredTrucks = trucks.filter(truck => {
-    const matchesSearch = searchTerm === '' || 
-      truck.truckNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = searchTerm === '' ||
+      truck.vehicleNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       truck.orderId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      truck.dealerId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      truck.sellerId?.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesStatus = statusFilter === 'All' || truck.truckStatus === statusFilter
-    
+      truck.dealerId?.tradeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      truck.sellerId?.firmName?.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesStatus = statusFilter === 'All' || truck.status === statusFilter
+
     return matchesSearch && matchesStatus
   })
 
@@ -124,16 +147,14 @@ export default function TrucksTable({ refreshTrigger }: TruckTableProps) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Truck Dispatch':
+      case 'Truck Dispatched':
         return 'bg-green-100 text-green-800'
       case 'Truck Inside Mill':
         return 'bg-blue-100 text-blue-800'
       case 'Truck Outside Mill':
         return 'bg-yellow-100 text-yellow-800'
-      case 'On Hold':
+      case 'Truck on Hold':
         return 'bg-red-100 text-red-800'
-      case 'Pending':
-        return 'bg-gray-100 text-gray-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -260,8 +281,8 @@ export default function TrucksTable({ refreshTrigger }: TruckTableProps) {
                 <tr key={truck._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     <div className="flex items-center space-x-2">
-                      <span>{truck.truckNo || 'N/A'}</span>
-                      <button 
+                      <span>{truck.vehicleNumber || 'N/A'}</span>
+                      <button
                         onClick={() => handleTruckInfo(truck)}
                         className="text-primary-600 hover:text-primary-800 transition-colors"
                         title="Truck Info"
@@ -271,10 +292,10 @@ export default function TrucksTable({ refreshTrigger }: TruckTableProps) {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {truck.trackingId}
+                    {truck.truckId || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {truck.driverPhoneNo || 'N/A'}
+                    {truck.driverMobileNo || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {truck.orderId}
@@ -282,23 +303,22 @@ export default function TrucksTable({ refreshTrigger }: TruckTableProps) {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       <select
-                        value={truck.truckStatus}
+                        value={truck.status}
                         onChange={(e) => handleStatusUpdate(truck._id, e.target.value)}
-                        className={`text-xs font-medium rounded px-2 py-1 border-none ${getStatusColor(truck.truckStatus)} focus:outline-none`}
+                        className={`text-xs font-medium rounded px-2 py-1 border-none ${getStatusColor(truck.status)} focus:outline-none`}
                       >
-                        <option value="Pending">Pending</option>
                         <option value="Truck Outside Mill">Truck Outside Mill</option>
                         <option value="Truck Inside Mill">Truck Inside Mill</option>
-                        <option value="On Hold">On Hold</option>
-                        <option value="Truck Dispatch">Truck Dispatch</option>
+                        <option value="Truck on Hold">Truck on Hold</option>
+                        <option value="Truck Dispatched">Truck Dispatched</option>
                       </select>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {truck.sellerId || 'N/A'}
+                    {truck.sellerId?.firmName || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {truck.dealerId?.name || 'N/A'}
+                    {truck.dealerId?.tradeName || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button 
@@ -319,14 +339,25 @@ export default function TrucksTable({ refreshTrigger }: TruckTableProps) {
       <TruckInfoModal
         isOpen={isTruckInfoModalOpen}
         onClose={() => setIsTruckInfoModalOpen(false)}
+        onSave={fetchTrucks}
         truckData={selectedTruck ? {
-          truckNumber: selectedTruck.truckNo || 'N/A',
+          _id: selectedTruck._id,
+          truckId: selectedTruck.truckId || 'N/A',
+          vehicleNumber: selectedTruck.vehicleNumber || 'N/A',
           orderId: selectedTruck.orderId,
-          driverNumber: selectedTruck.driverPhoneNo ? `+91 ${selectedTruck.driverPhoneNo}` : 'N/A',
-          driverName: 'N/A', // This field is not available in the truck status model
-          sellerName: selectedTruck.sellerId || 'N/A',
-          truckStatus: selectedTruck.truckStatus,
-          dealerName: selectedTruck.dealerId?.name || 'N/A'
+          driverMobileNo: selectedTruck.driverMobileNo || 'N/A',
+          sellerName: selectedTruck.sellerId?.firmName || 'N/A',
+          dealerName: selectedTruck.dealerId?.tradeName || 'N/A',
+          status: selectedTruck.status,
+          transporterName: selectedTruck.transporterName,
+          transporterMobileNo: selectedTruck.transporterMobileNo,
+          transporterGSTNo: selectedTruck.transporterGSTNo,
+          vehicleCapacity: selectedTruck.vehicleCapacity,
+          quantityToLoad: selectedTruck.quantityToLoad,
+          loadedQuantity: selectedTruck.loadedQuantity,
+          billDocument: selectedTruck.billDocument,
+          paymentConfirmationDocument: selectedTruck.paymentConfirmationDocument,
+          remarks: selectedTruck.remarks
         } : undefined}
       />
     </div>
