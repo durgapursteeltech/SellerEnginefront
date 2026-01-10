@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { X, Copy } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { X, Copy, Upload } from "lucide-react";
 import { API_BASE_URL } from "../utils/api";
 
 interface SellerInfoModalProps {
@@ -51,6 +51,9 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
   const [originalBrandName, setOriginalBrandName] = useState("");
   const [documents, setDocuments] = useState<any[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [selectedDocType, setSelectedDocType] = useState<'gst' | 'nocDocument'>('gst');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Update formData when sellerData changes
   useEffect(() => {
@@ -276,6 +279,61 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
     setPasswordError("");
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !sellerId) return;
+
+    setUploadingDocument(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('sellerId', sellerId);
+      formData.append('documentType', selectedDocType);
+
+      const token = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/admin/dashboard/seller-documents/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'SUCCESS') {
+        alert('Document uploaded successfully!');
+        // Refresh documents list
+        const docsResponse = await fetch(`${API_BASE_URL}/admin/dashboard/seller-documents/${sellerId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (docsResponse.ok) {
+          const docsData = await docsResponse.json();
+          setDocuments(docsData.data || []);
+        }
+      } else {
+        alert(data.message || 'Failed to upload document');
+      }
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      alert('An error occurred while uploading the document');
+    } finally {
+      setUploadingDocument(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const triggerFileUpload = (docType: 'gst' | 'nocDocument') => {
+    setSelectedDocType(docType);
+    fileInputRef.current?.click();
+  };
+
   return (
     <>
       {/* Main Modal */}
@@ -488,16 +546,74 @@ const SellerInfoModal: React.FC<SellerInfoModalProps> = ({
 
           {/* Documents */}
           <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Documents
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900">
+                Documents
+              </h3>
+            </div>
+
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept=".pdf,.jpg,.jpeg,.png"
+              className="hidden"
+            />
+
+            {/* Upload Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary-500 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Upload className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">GST Certificate</div>
+                      <div className="text-xs text-gray-500">PDF, JPG, PNG (max 10MB)</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => triggerFileUpload('gst')}
+                    disabled={uploadingDocument}
+                    className="px-3 py-1.5 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {uploadingDocument && selectedDocType === 'gst' ? 'Uploading...' : 'Upload'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary-500 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <Upload className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">NOC Document</div>
+                      <div className="text-xs text-gray-500">PDF, JPG, PNG (max 10MB)</div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => triggerFileUpload('nocDocument')}
+                    disabled={uploadingDocument}
+                    className="px-3 py-1.5 bg-primary-600 text-white text-sm rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {uploadingDocument && selectedDocType === 'nocDocument' ? 'Uploading...' : 'Upload'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Existing Documents */}
             {loadingDocuments ? (
               <div className="text-center py-8 text-gray-500">
                 Loading documents...
               </div>
             ) : documents.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                No documents uploaded yet
+              <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg">
+                No documents uploaded yet. Use the upload buttons above to add documents.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
